@@ -7,8 +7,9 @@
   --bg: #f4f5f7;
   --surface: #ffffff;
   --surface-alt: #fafbfc;
-  --border: #e2e5ea;
-  --border-strong: #cbd1d9;
+  /* 大圆角下深边框会显脏，整体淡化一档：层次交给阴影，边框只做分隔 */
+  --border: #e8ebf0;
+  --border-strong: #d5dae1;
   --text: #191c21;
   --text-muted: #6b7280;
   --primary: #2563eb;
@@ -17,10 +18,14 @@
   --danger: #dc2626;
   --danger-soft: #fef2f2;
   --ok: #16a34a;
-  --radius: 10px;
-  --radius-sm: 6px;
-  --shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 1px 3px rgba(16, 24, 40, 0.06);
-  --shadow-lg: 0 4px 12px rgba(16, 24, 40, 0.08);
+  /* 圆角尺度：卡片 16 / 控件 10 / 细条 6。
+     新代码一律引用变量，不要写死像素值 —— 全站圆角靠这两个值统一调。 */
+  --radius: 16px;
+  --radius-sm: 10px;
+  --radius-xs: 6px;
+  /* 大圆角配柔阴影：靠模糊半径拉层次，不再靠深色阴影勾边 */
+  --shadow: 0 1px 2px rgba(16, 24, 40, 0.03), 0 4px 14px rgba(16, 24, 40, 0.05);
+  --shadow-lg: 0 8px 28px rgba(16, 24, 40, 0.08);
   --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
     "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", sans-serif;
   --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
@@ -743,7 +748,7 @@ input[type="file"] {
   background: linear-gradient(90deg, #eceef1 25%, #f5f6f8 50%, #eceef1 75%);
   background-size: 200% 100%;
   animation: shimmer 1.3s infinite;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
 }
 
 @keyframes shimmer {
@@ -843,13 +848,14 @@ input[type="file"] {
     padding: 14px 12px 48px;
   }
 
+  /* 内边距不能小于 --radius，否则全出血的表格方角会戳出卡片圆角 */
   .card {
-    padding: 15px;
+    padding: 16px;
   }
 
   .table-wrap {
-    margin: 0 -15px;
-    padding: 0 15px;
+    margin: 0 -16px;
+    padding: 0 16px;
   }
 
   .container-narrow {
