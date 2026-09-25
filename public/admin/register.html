@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>注册管理员</title>
+  <link rel="stylesheet" href="/css/app.css">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+</head>
+<body>
+  <main class="container container-narrow">
+    <div class="card">
+      <h1>注册管理员</h1>
+      <p class="muted small mt-sm">
+        整个系统只能有一个管理员账号。注册完成后，注册入口会自动关闭。
+      </p>
+
+      <div id="message" class="mt-md"></div>
+
+      <form id="register-form" class="mt-md" novalidate>
+        <div class="field">
+          <label for="username">用户名</label>
+          <input type="text" id="username" name="username" autocomplete="username"
+                 placeholder="3-32 位字母、数字或下划线" required>
+        </div>
+        <div class="field">
+          <label for="password">密码</label>
+          <input type="password" id="password" name="password" autocomplete="new-password"
+                 placeholder="至少 10 位，需含字母和数字" required>
+          <span class="hint">建议使用密码管理器生成并保存</span>
+        </div>
+        <div class="field">
+          <label for="confirm">确认密码</label>
+          <input type="password" id="confirm" name="confirm" autocomplete="new-password" required>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block" id="submit-btn">创建账号</button>
+      </form>
+    </div>
+
+    <p class="center small muted mt-md">
+      <a href="/admin/login">已有账号，去登录</a>
+    </p>
+  </main>
+
+  <script src="/js/api.js" defer></script>
+  <script src="/js/admin-register.js" defer></script>
+</body>
+</html>

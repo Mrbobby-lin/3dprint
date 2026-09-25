@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>设置</title>
+  <link rel="stylesheet" href="/css/app.css">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+</head>
+<body>
+  <header class="topbar no-print">
+    <div class="topbar-inner">
+      <a class="brand" href="/admin/orders">3D 打印订单管理</a>
+      <nav>
+        <a href="/admin/orders">订单列表</a>
+        <a href="/admin/order/form">新建订单</a>
+        <a href="/admin/settings">设置</a>
+        <a href="/admin/password">修改密码</a>
+        <a href="#" id="logout-link">退出</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container container-narrow">
+    <div class="card">
+      <h1>设置</h1>
+      <p class="muted small mt-sm mb-0">这些设置只影响你这边的操作，客户查单页面不受影响。</p>
+
+      <div id="message" class="mt-md"></div>
+
+      <form id="settings-form" class="mt-md" novalidate>
+        <div class="field">
+          <label for="default_unit_price">默认单价（元/克）</label>
+          <input type="number" id="default_unit_price" min="0" max="10000" step="0.01"
+                 inputmode="decimal" placeholder="例如 0.55">
+          <span class="hint">
+            新建订单时填了预估重量，会按「预估重量 × 单价」自动把报价算出来，仍然可以手动改。
+            留空表示不自动算价。
+          </span>
+        </div>
+
+        <button type="submit" class="btn btn-primary" id="submit-btn">保存</button>
+      </form>
+    </div>
+  </main>
+
+  <script src="/js/api.js" defer></script>
+  <script src="/js/admin-settings.js" defer></script>
+</body>
+</html>

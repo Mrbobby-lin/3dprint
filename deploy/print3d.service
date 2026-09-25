@@ -1,0 +1,38 @@
+[Unit]
+Description=3D 打印订单管理系统
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=print3d
+Group=print3d
+WorkingDirectory=/opt/print3d/app
+
+# .env 里有 SESSION_SECRET，属主必须是 print3d、权限必须是 600
+EnvironmentFile=/opt/print3d/app/.env
+
+# node:sqlite 目前会打 ExperimentalWarning，日志里没必要每次都出现
+ExecStart=/usr/bin/node --disable-warning=ExperimentalWarning app.js
+
+Restart=always
+RestartSec=3
+
+# 堆上限必须低于 MemoryMax。只设 MemoryMax 的话，Node 会一路涨到撞上
+# 系统 OOM killer 被 -9 杀掉，而不是让 systemd 干净地重启 —— 两者的
+# 排查体验完全不同。留 128M 给堆外开销（栈、Buffer、原生结构）。
+Environment=NODE_OPTIONS=--max-old-space-size=384
+MemoryMax=512M
+
+# 权限收紧。ProtectSystem=strict 把整个文件系统挂成只读，
+# 只有 ReadWritePaths 里的目录可写 —— 所以数据库、备份和上传目录
+# 必须都落在 /var/lib/print3d 下面，否则服务起不来且报错很隐晦。
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/print3d
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>新建订单</title>
+  <link rel="stylesheet" href="/css/app.css">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+</head>
+<body>
+  <header class="topbar no-print">
+    <div class="topbar-inner">
+      <a class="brand" href="/admin/orders">3D 打印订单管理</a>
+      <nav>
+        <a href="/admin/orders">订单列表</a>
+        <a href="/admin/order/form">新建订单</a>
+        <a href="/admin/settings">设置</a>
+        <a href="/admin/password">修改密码</a>
+        <a href="#" id="logout-link">退出</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <div id="message"></div>
+
+    <form id="order-form" novalidate>
+      <div class="card">
+        <div class="card-head">
+          <h2 id="page-title">新建订单</h2>
+          <span class="muted small" id="order-no-hint"></span>
+        </div>
+
+        <h3 class="muted mb-0">客户信息</h3>
+        <p class="hint muted small">这两项仅内部可见，客户查单时看不到</p>
+        <div class="grid-2">
+          <div class="field">
+            <label for="customer_name">客户姓名 *</label>
+            <input type="text" id="customer_name" maxlength="50" required>
+          </div>
+          <div class="field">
+            <label for="customer_phone">联系电话 *</label>
+            <input type="tel" id="customer_phone" maxlength="20" required>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 class="muted mb-0">模型与工艺</h3>
+        <p class="hint muted small">这些内容客户可见</p>
+
+        <div class="field">
+          <label for="model_name">模型名称 *</label>
+          <input type="text" id="model_name" maxlength="100" placeholder="例如：机械臂关节" required>
+        </div>
+
+        <div class="grid-3">
+          <div class="field">
+            <label for="material">材料 *</label>
+            <select id="material" required></select>
+          </div>
+          <div class="field">
+            <label for="color">颜色</label>
+            <input type="text" id="color" maxlength="30">
+          </div>
+          <div class="field">
+            <label for="quantity">数量</label>
+            <input type="number" id="quantity" min="1" max="10000" step="1" value="1">
+          </div>
+          <div class="field">
+            <label for="layer_height">层高 (mm)</label>
+            <input type="number" id="layer_height" min="0.02" max="2" step="0.02" placeholder="0.2">
+          </div>
+          <div class="field">
+            <label for="infill">填充率 (%)</label>
+            <input type="number" id="infill" min="0" max="100" step="1" placeholder="20">
+          </div>
+          <div class="field">
+            <label for="est_weight_g">预估重量 (g)</label>
+            <input type="number" id="est_weight_g" min="0" step="0.1">
+          </div>
+        </div>
+
+        <div class="checkbox-field">
+          <input type="checkbox" id="need_support">
+          <label for="need_support">需要支撑</label>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 class="muted mb-0">报价与交期</h3>
+
+        <div class="grid-2">
+          <div class="field">
+            <label for="price">报价 (元)</label>
+            <input type="number" id="price" min="0" step="0.01">
+            <span class="hint" id="price-hint"></span>
+          </div>
+          <div class="field">
+            <label for="promised_date">预计交付日期</label>
+            <input type="date" id="promised_date">
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="customer_note">客户备注</label>
+          <textarea id="customer_note" maxlength="1000" placeholder="客户提出的要求，客户自己也看得到"></textarea>
+        </div>
+
+        <div class="field">
+          <label for="admin_note">内部备注</label>
+          <textarea id="admin_note" maxlength="2000" placeholder="仅自己可见，例如议价记录、加急原因"></textarea>
+        </div>
+      </div>
+
+      <div class="row">
+        <button type="submit" class="btn btn-primary" id="submit-btn">创建订单</button>
+        <a class="btn" href="/admin/orders" id="cancel-link">取消</a>
+      </div>
+    </form>
+  </main>
+
+  <script src="/js/api.js" defer></script>
+  <script src="/js/admin-order-form.js" defer></script>
+</body>
+</html>

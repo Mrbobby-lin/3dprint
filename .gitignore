@@ -1,0 +1,8 @@
+node_modules/
+.env
+# 运行时数据目录：数据库、WAL、备份、browser-check 截图，一律不进仓库
+data/
+storage/
+*.log
+.DS_Store
+Thumbs.db

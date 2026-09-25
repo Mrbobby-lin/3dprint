@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>订单详情</title>
+  <link rel="stylesheet" href="/css/app.css">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+</head>
+<body>
+  <header class="topbar no-print">
+    <div class="topbar-inner">
+      <a class="brand" href="/admin/orders">3D 打印订单管理</a>
+      <nav>
+        <a href="/admin/orders">订单列表</a>
+        <a href="/admin/order/form">新建订单</a>
+        <a href="/admin/settings">设置</a>
+        <a href="/admin/password">修改密码</a>
+        <a href="#" id="logout-link">退出</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <div id="message"></div>
+
+    <div id="content" class="hidden">
+      <div class="card">
+        <div class="row-between">
+          <div>
+            <div class="muted small">订单号（发给客户）</div>
+            <div class="order-no-display" id="order-no"></div>
+          </div>
+          <div class="row">
+            <span id="status-badge"></span>
+          </div>
+        </div>
+        <div class="row mt-md no-print">
+          <button class="btn btn-sm btn-primary" id="copy-btn">复制订单号</button>
+          <a class="btn btn-sm" id="edit-link" href="#">编辑</a>
+          <button class="btn btn-sm btn-danger" id="delete-btn">删除订单</button>
+          <span class="spacer"></span>
+          <span class="muted small" id="updated-at"></span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>推进状态</h2>
+        </div>
+        <div id="status-panel"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>订单信息</h2>
+        </div>
+        <div class="info-grid" id="info"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>文件</h2>
+          <span class="muted small">内部文件客户看不到</span>
+        </div>
+        <ul class="attach-list" id="attachments"></ul>
+        <div class="mt-md" id="upload-area"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>状态变更记录</h2>
+        </div>
+        <ol class="timeline" id="history"></ol>
+      </div>
+    </div>
+
+    <div id="loading" class="card">
+      <div class="skeleton mb-0"></div>
+    </div>
+  </main>
+
+  <script src="/js/api.js" defer></script>
+  <script src="/js/admin-order-detail.js" defer></script>
+</body>
+</html>

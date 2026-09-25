@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>订单进度查询</title>
+  <link rel="stylesheet" href="/css/app.css">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+</head>
+<body>
+  <main class="container container-narrow">
+    <div class="card">
+      <h1>订单进度查询</h1>
+      <p class="muted small mt-sm">
+        输入我们发给你的订单号，即可查看当前打印进度。
+      </p>
+
+      <div id="message" class="mt-md"></div>
+
+      <form id="lookup-form" class="mt-md" novalidate>
+        <div class="field">
+          <label for="order-no">订单号</label>
+          <input
+            type="text"
+            id="order-no"
+            name="order_no"
+            placeholder="3D-XXXX-XXXX-XXXX"
+            autocomplete="off"
+            autocapitalize="characters"
+            autocorrect="off"
+            spellcheck="false"
+            enterkeyhint="go"
+            required>
+          <span class="hint">不区分大小写，中间的横线可以省略</span>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block" id="submit-btn">查询</button>
+      </form>
+    </div>
+
+    <p class="center small muted mt-md">
+      <a href="/admin/login">管理员登录</a>
+    </p>
+    <p class="center small muted mt-sm" id="forgot"></p>
+  </main>
+
+  <script src="/js/api.js" defer></script>
+  <script src="/js/customer.js" defer></script>
+</body>
+</html>

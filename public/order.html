@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>订单详情</title>
+  <link rel="stylesheet" href="/css/app.css">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+</head>
+<body>
+  <header class="topbar no-print">
+    <div class="topbar-inner">
+      <a class="brand" href="/">订单查询</a>
+      <nav>
+        <a href="#" id="logout-link">查询其他订单</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <div id="message"></div>
+
+    <div id="content" class="hidden">
+      <div class="card">
+        <div class="row-between">
+          <div>
+            <div class="muted small">订单号</div>
+            <div class="order-no-display" id="order-no"></div>
+          </div>
+          <div class="row">
+            <span id="status-badge"></span>
+          </div>
+        </div>
+        <div class="row mt-md no-print">
+          <button class="btn btn-sm" id="copy-btn">复制订单号</button>
+          <button class="btn btn-sm" id="print-btn">打印/保存</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>打印进度</h2>
+          <span class="muted small" id="updated-at"></span>
+        </div>
+        <ol class="timeline" id="timeline"></ol>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>订单信息</h2>
+        </div>
+        <div class="info-grid" id="info"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>文件</h2>
+          <span class="muted small">支持 STL / 3MF / OBJ 与图片</span>
+        </div>
+        <ul class="attach-list" id="attachments"></ul>
+        <div class="mt-md" id="upload-area"></div>
+      </div>
+    </div>
+
+    <div id="loading" class="card">
+      <div class="skeleton mb-0"></div>
+    </div>
+  </main>
+
+  <script src="/js/api.js" defer></script>
+  <script src="/js/order.js" defer></script>
+</body>
+</html>

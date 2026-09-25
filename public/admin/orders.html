@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>订单管理</title>
+  <link rel="stylesheet" href="/css/app.css">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+</head>
+<body>
+  <header class="topbar no-print">
+    <div class="topbar-inner">
+      <a class="brand" href="/admin/orders">3D 打印订单管理</a>
+      <nav>
+        <a href="/admin/orders">订单列表</a>
+        <a href="/admin/order/form">新建订单</a>
+        <a href="/admin/settings">设置</a>
+        <!-- id 是给旧版 admin-orders.js 留的兼容位：静态资源缓存 1 小时，
+             部署后浏览器可能仍在跑旧 JS，而旧 JS 会 getElementById('password-link')
+             并绑定事件 —— 元素没了就直接抛异常，整页 JS 全废。
+             等确认缓存都过期（下一次发布时）可以删掉这个 id。 -->
+        <a href="/admin/password" id="password-link">修改密码</a>
+        <a href="#" id="logout-link">退出</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <div id="message"></div>
+
+    <div class="card">
+      <div id="stats-message"></div>
+      <div class="stats" id="stats"></div>
+      <p class="muted small mb-0 mt-md">统计的是全部订单，不受下方筛选影响。</p>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>订单列表</h2>
+        <a class="btn btn-primary btn-sm" href="/admin/order/form">新建订单</a>
+      </div>
+
+      <div class="filters">
+        <select id="status-filter" aria-label="按状态筛选">
+          <option value="">全部状态</option>
+        </select>
+        <input type="text" id="search" placeholder="搜索订单号 / 姓名 / 电话 / 模型" aria-label="搜索">
+        <button class="btn" id="search-btn">搜索</button>
+        <button class="btn btn-link" id="reset-btn">重置</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div id="list-message"></div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>订单号</th>
+              <th>客户</th>
+              <th>模型</th>
+              <th>材料</th>
+              <th>数量</th>
+              <th>报价</th>
+              <th>交付</th>
+              <th>状态</th>
+              <th>下单时间</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+      <div id="empty" class="empty hidden">没有符合条件的订单</div>
+      <div class="pager">
+        <button class="btn btn-sm" id="prev-btn">上一页</button>
+        <span id="page-info" class="muted"></span>
+        <button class="btn btn-sm" id="next-btn">下一页</button>
+      </div>
+    </div>
+  </main>
+
+  <script src="/js/api.js" defer></script>
+  <script src="/js/admin-orders.js" defer></script>
+</body>
+</html>

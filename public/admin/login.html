@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>管理员登录</title>
+  <link rel="stylesheet" href="/css/app.css">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+</head>
+<body>
+  <main class="container container-narrow">
+    <div class="card">
+      <h1>管理员登录</h1>
+      <div id="message" class="mt-md"></div>
+
+      <form id="login-form" class="mt-md" novalidate>
+        <div class="field">
+          <label for="username">用户名</label>
+          <input type="text" id="username" name="username" autocomplete="username" required>
+        </div>
+        <div class="field">
+          <label for="password">密码</label>
+          <input type="password" id="password" name="password" autocomplete="current-password" required>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block" id="submit-btn">登录</button>
+      </form>
+    </div>
+
+    <p class="center small muted mt-md hidden" id="register-hint">
+      还没有账号？<a href="/admin/register">首次使用请注册管理员</a>
+    </p>
+    <p class="center small muted mt-md">
+      <a href="/">返回订单查询</a>
+    </p>
+  </main>
+
+  <script src="/js/api.js" defer></script>
+  <script src="/js/admin-login.js" defer></script>
+</body>
+</html>
