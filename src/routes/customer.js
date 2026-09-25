@@ -5,9 +5,11 @@ const express = require('express');
 const logger = require('../lib/logger');
 const orders = require('../services/orders');
 const statusMachine = require('../services/statusMachine');
+const tickets = require('../services/tickets');
 const { db } = require('../../db');
 const { normalizeOrderNo } = require('../services/orderNo');
 const { requireCustomer, setCustomerCookie, CUSTOMER_COOKIE } = require('../middleware/session');
+const { AppError } = require('../middleware/errorHandler');
 const { createRateLimiter, clientIp } = require('../middleware/rateLimit');
 const config = require('../lib/config');
 
@@ -149,6 +151,79 @@ router.get('/order/history', requireCustomer, (req, res, next) => {
     }
     const history = orders.getHistory(req.orderId);
     res.json({ timeline: buildTimeline(order, history) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// 工单：客户在查单页发起售后/咨询，管理员在后台回复
+// ---------------------------------------------------------------------------
+
+/**
+ * 订单被管理员删掉后 cookie 还留着的统一处理：清 cookie + 404。
+ * 不做这个检查的话，新建工单会撞外键约束报 500 ——
+ * 对外表现应该是"订单不在了"，而不是"服务器出错"。
+ */
+function requireLiveOrder(req, res) {
+  const order = orders.getById(req.orderId);
+  if (!order) {
+    res.clearCookie(CUSTOMER_COOKIE, { path: '/' });
+    throw new AppError(404, '订单不存在或已被删除');
+  }
+  return order;
+}
+
+// GET /api/customer/tickets —— 当前订单的全部工单（含完整消息）
+router.get('/tickets', requireCustomer, (req, res, next) => {
+  try {
+    requireLiveOrder(req, res);
+    res.json({
+      tickets: tickets.listByOrder(req.orderId),
+      // 分类选项由服务端给，客户页不用再维护一份枚举
+      categories: tickets.categoriesForForm(),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/customer/tickets —— 发起工单
+router.post('/tickets', requireCustomer, (req, res, next) => {
+  try {
+    requireLiveOrder(req, res);
+    const ticket = tickets.createTicket(req.orderId, req.body || {});
+
+    logger.info('客户提交工单', {
+      orderId: req.orderId,
+      ticketId: ticket.id,
+      category: ticket.category,
+    });
+    res.status(201).json({
+      ticket: tickets.decorate(ticket),
+      messages: tickets.getMessages(ticket.id),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/customer/tickets/:id/messages —— 在原工单里追问
+router.post('/tickets/:id/messages', requireCustomer, (req, res, next) => {
+  try {
+    requireLiveOrder(req, res);
+
+    const id = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(id) || id <= 0) throw new AppError(400, '工单 ID 无效');
+
+    // orderId 必须从 cookie 传进去：不属于本订单的工单会被当成不存在
+    const ticket = tickets.addMessage(id, 'customer', req.body?.body, { orderId: req.orderId });
+
+    logger.info('客户追加了工单消息', { orderId: req.orderId, ticketId: id });
+    res.status(201).json({
+      ticket: tickets.decorate(ticket),
+      messages: tickets.getMessages(id),
+    });
   } catch (err) {
     next(err);
   }

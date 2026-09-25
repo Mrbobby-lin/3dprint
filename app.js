@@ -67,6 +67,9 @@ app.use('/api/auth', require('./src/routes/auth'));
 // 必须挂在 /api/admin 之前：adminOrders 用了 router.use(requireAdmin)，
 // 挂在它后面的话 /api/admin/settings 的请求会先进那个路由并被它吞掉。
 app.use('/api/admin/settings', require('./src/routes/adminSettings'));
+// 和 settings 同一个理由：adminOrders 用了 router.use(requireAdmin) 一刀切，
+// 挂在它后面的话 /api/admin/tickets 会先进那个 router，被 401 或 404 拦掉。
+app.use('/api/admin/tickets', require('./src/routes/adminTickets'));
 app.use('/api/admin', require('./src/routes/adminOrders'));
 app.use('/api/customer', require('./src/routes/customer'));
 app.use('/api/files', require('./src/routes/files'));

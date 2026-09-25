@@ -32,6 +32,8 @@
     info: document.getElementById('info'),
     attachments: document.getElementById('attachments'),
     uploadArea: document.getElementById('upload-area'),
+    tickets: document.getElementById('tickets'),
+    ticketsHint: document.getElementById('tickets-hint'),
     history: document.getElementById('history'),
     editLink: document.getElementById('edit-link'),
     copyBtn: document.getElementById('copy-btn'),
@@ -302,11 +304,43 @@
     );
   }
 
+  function renderTickets(tickets) {
+    const wrap = clear(els.tickets);
+    els.ticketsHint.textContent = tickets.length ? `共 ${tickets.length} 条` : '';
+
+    if (tickets.length === 0) {
+      wrap.append(h('p', { class: 'muted small mb-0', text: '这单还没有客户提交的工单。' }));
+      return;
+    }
+
+    for (const ticket of tickets) {
+      wrap.append(
+        h('div', { class: 'ticket' },
+          h('div', { class: 'ticket-head' },
+            h('h3', { text: ticket.subject }),
+            badge(ticket.status, ticket.status_label),
+            h('span', { class: 'muted small' },
+              `${ticket.category_label} · ${ticket.message_count} 条消息 · ${formatDateTime(ticket.last_message_at)}`)),
+          h('div', { class: 'mt-sm' },
+            h('a', { class: 'btn btn-sm', href: `/admin/ticket/detail?id=${ticket.id}` }, '查看并回复')))
+      );
+    }
+  }
+
+  // 工单区单独请求，失败不影响订单主体；没有工单 API 时这块静默留空
+  async function loadTickets() {
+    const res = await Api.get(`/api/admin/tickets?order_id=${encodeURIComponent(orderId)}`);
+    if (!res.ok) return;
+    renderTickets(res.data.tickets);
+  }
+
   /* ---------------------------------------------------------------------
      加载
      --------------------------------------------------------------------- */
 
   async function load() {
+    loadTickets();
+
     const res = await Api.get(`/api/admin/orders/${orderId}`);
     if (!res.ok) {
       els.loading.classList.add('hidden');

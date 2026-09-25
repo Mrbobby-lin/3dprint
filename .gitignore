@@ -6,3 +6,6 @@ storage/
 *.log
 .DS_Store
 Thumbs.db
+
+# 本机的 Claude Code 权限设置。settings.json 是共享的，要留在仓库里
+.claude/settings.local.json

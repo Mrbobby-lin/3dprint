@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>工单详情</title>
+  <link rel="stylesheet" href="/css/app.css">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+</head>
+<body>
+  <header class="topbar no-print">
+    <div class="topbar-inner">
+      <a class="brand" href="/admin/orders">3D 打印订单管理</a>
+      <nav>
+        <a href="/admin/orders">订单列表</a>
+        <a href="/admin/order/form">新建订单</a>
+        <a href="/admin/tickets">工单</a>
+        <a href="/admin/settings">设置</a>
+        <a href="/admin/password">修改密码</a>
+        <a href="#" id="logout-link">退出</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <div id="message"></div>
+
+    <div id="content" class="hidden">
+      <div class="card">
+        <div class="row-between">
+          <div>
+            <div class="muted small">工单问题</div>
+            <h1 id="subject"></h1>
+          </div>
+          <div class="row" id="status-badge-slot"></div>
+        </div>
+
+        <div class="info-grid mt-md" id="info"></div>
+
+        <div class="row mt-md no-print">
+          <button class="btn btn-sm" id="close-btn">标记已结束</button>
+          <button class="btn btn-sm hidden" id="reopen-btn">重新打开</button>
+          <a class="btn btn-sm" id="order-link" href="#">查看订单</a>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>对话</h2>
+          <span class="muted small" id="thread-hint"></span>
+        </div>
+
+        <div class="thread" id="thread"></div>
+
+        <form class="mt-md" id="reply-form" novalidate>
+          <div class="field">
+            <label for="reply-body">回复</label>
+            <textarea id="reply-body" placeholder="写清楚处理结果，或需要客户补充什么信息"></textarea>
+            <span class="hint">回复后客户在查单页就能看到，工单状态会变成「已回复」。</span>
+          </div>
+          <button type="submit" class="btn btn-primary" id="reply-btn">发送回复</button>
+        </form>
+      </div>
+    </div>
+
+    <div id="loading" class="card">
+      <div class="skeleton mb-0"></div>
+    </div>
+  </main>
+
+  <script src="/js/api.js" defer></script>
+  <script src="/js/admin-ticket-detail.js" defer></script>
+</body>
+</html>

@@ -42,6 +42,10 @@ const CUSTOMER_PHONE = '13800138000';
 const UNIT_PRICE = '0.55';
 // 越级变更的必填原因。这句话是内部审计记录，绝不能出现在客户页面上。
 const FORCE_NOTE = '客户投诉，破例跳过排队';
+// 工单内容。回复里刻意带上处理结论，用来验证它确实透到了客户页。
+const TICKET_SUBJECT = '支撑印得一塌糊涂';
+const TICKET_BODY = '第二节的悬垂位置全是拉丝，支撑拆下来留了一堆疤，要不要重新打一个？';
+const TICKET_REPLY = '看到了，是我们支撑参数没调好。这单免费重打，今天重新上机。';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -270,7 +274,7 @@ async function setViewport(width, height, mobile = false) {
 
 // 这些请求返回 401 是设计的一部分：页面加载时主动打一次，用来判断会话是否还在。
 // 未登录访客必然收到 401，浏览器会把它们记成 error 级日志，但那不是缺陷。
-const PROBE_PATHS = /\/(api\/customer\/order(\/history)?|api\/auth\/me)$/;
+const PROBE_PATHS = /\/(api\/customer\/(order(\/history)?|tickets)|api\/auth\/me)$/;
 
 function isExpectedNoise(url, status) {
   if (!url) return false;
@@ -875,9 +879,197 @@ async function main() {
 
     await setViewport(1280, 1000);
 
+    /* ---------------- 9. 售后工单 ---------------- */
+
+    console.log('9) 售后工单');
+    await setViewport(1280, 1200);
+    await waitFor(`document.getElementById('new-ticket-btn')`, { label: '工单区渲染出来' });
+
+    check(
+      (await evaluate(`document.getElementById('tickets').textContent`)).includes('都可以在这里提'),
+      '一条工单都没有时给出引导文案'
+    );
+
+    await evaluate(`document.getElementById('new-ticket-btn').click(), true`);
+    await waitFor(`!document.getElementById('ticket-form').classList.contains('hidden')`, {
+      label: '点「提交新工单」展开表单',
+    });
+
+    const categoryCount = await evaluate(
+      `document.getElementById('ticket-category').options.length`
+    );
+    check(categoryCount === 4, `问题类型下拉有 ${categoryCount} 个选项`);
+
+    await evaluate(`(() => {
+      const s = document.getElementById('ticket-category');
+      s.value = s.options[0].value;
+      s.dispatchEvent(new Event('change', { bubbles: true }));
+      return s.value;
+    })()`);
+    await setFields({ 'ticket-subject': TICKET_SUBJECT, 'ticket-body': TICKET_BODY });
+    await submitForm('ticket-form');
+
+    await waitFor(
+      `document.getElementById('tickets').textContent.includes(${JSON.stringify(TICKET_SUBJECT)})`,
+      { timeout: 20000, label: '新工单出现在页面上' }
+    );
+
+    check(
+      await evaluate(`document.getElementById('ticket-form').classList.contains('hidden')`),
+      '提交后表单收起'
+    );
+    check(
+      await evaluate(`document.getElementById('ticket-body').value === ''`),
+      '提交后输入框清空'
+    );
+
+    const custTicketText = await evaluate(`document.getElementById('tickets').textContent`);
+    check(custTicketText.includes('待处理'), '客户看到的状态是「待处理」');
+    check(custTicketText.includes(TICKET_BODY), '客户看到自己写的正文');
+    check(custTicketText.includes('我 ·'), '自己发的消息标为「我」');
+    await shot('10-客户-提交工单');
+
+    // 换成店家身份。两个 cookie 是独立的，不清掉的话会同时带着客户身份走。
+    await cdp.send('Network.clearBrowserCookies');
+    await goto(`${BASE}/admin/login`, {
+      waitFor: `document.getElementById('login-form')`,
+      label: '管理员登录表单出现',
+    });
+    await setFields({ username: ADMIN_USER, password: ADMIN_PASS });
+    await submitForm('login-form');
+    await waitFor(`location.pathname === '/admin/orders'`, {
+      timeout: 20000,
+      label: '登录后进入订单列表',
+    });
+
+    await goto(`${BASE}/admin/tickets`, {
+      waitFor: `document.querySelectorAll('#rows tr').length > 0`,
+      label: '工单列表出现数据',
+    });
+
+    const ticketBoard = await evaluate(`(() => {
+      const out = {};
+      for (const tile of document.querySelectorAll('#stats .stat')) {
+        out[tile.querySelector('.stat-label').textContent.trim()] =
+          tile.querySelector('.stat-value').textContent.trim();
+      }
+      return out;
+    })()`);
+    check(ticketBoard['待处理'] === '1', `工单看板待处理 = ${ticketBoard['待处理']}`);
+    check(ticketBoard['工单总量'] === '1', `工单看板总量 = ${ticketBoard['工单总量']}`);
+
+    const rowText = await evaluate(`document.getElementById('rows').textContent`);
+    check(rowText.includes(TICKET_SUBJECT), '工单列表能看到问题标题');
+    check(rowText.includes(CUSTOMER_NAME), '工单列表能看到客户名');
+    await shot('11-管理端-工单列表');
+
+    const ticketHref = await evaluate(
+      `document.querySelector('#rows a[href^="/admin/ticket/detail"]').getAttribute('href')`
+    );
+    await goto(`${BASE}${ticketHref}`, {
+      waitFor: `document.getElementById('thread') && document.getElementById('reply-body')`,
+      label: '工单详情加载完成',
+    });
+
+    const detailThread = await evaluate(`document.getElementById('thread').textContent`);
+    check(detailThread.includes(TICKET_BODY), '详情页看到客户提交的正文');
+    check(detailThread.includes('客户 ·'), '客户的消息标为「客户」');
+    check(
+      (await evaluate(`document.getElementById('info').textContent`)).includes(orderNo),
+      '详情页能跳回所属订单'
+    );
+
+    await setFields({ 'reply-body': TICKET_REPLY });
+    await submitForm('reply-form');
+    await waitFor(
+      `document.getElementById('thread').textContent.includes(${JSON.stringify(TICKET_REPLY)})`,
+      { timeout: 20000, label: '回复出现在对话里' }
+    );
+
+    check(
+      (await evaluate(`document.querySelectorAll('#thread .thread-msg.from-me').length`)) === 1,
+      '店家自己的回复靠右显示'
+    );
+    check(
+      (await evaluate(`document.getElementById('status-badge-slot').textContent`)).includes(
+        '已回复'
+      ),
+      '店家回复后状态变成「已回复」'
+    );
+    check(
+      await evaluate(`document.getElementById('reply-body').value === ''`),
+      '回复后输入框清空'
+    );
+    await shot('12-管理端-工单详情');
+
+    // 订单详情页也要能看到这单的工单，否则处理完订单还得回工单列表里翻
+    await goto(`${BASE}/admin/order/detail?id=${orderId}`, {
+      waitFor: `document.getElementById('tickets').textContent.includes(${JSON.stringify(
+        TICKET_SUBJECT
+      )})`,
+      label: '订单详情页显示该单的工单',
+    });
+    const orderTicketText = await evaluate(`document.getElementById('tickets').textContent`);
+    check(orderTicketText.includes('已回复'), '订单详情页的工单块带出状态');
+    check(orderTicketText.includes('2 条消息'), '订单详情页的工单块带出消息数');
+    check(
+      (await evaluate(
+        `document.querySelector('#tickets a[href^="/admin/ticket/detail"]').getAttribute('href')`
+      )) === ticketHref,
+      '订单详情页跳转到的是同一条工单'
+    );
+    await shot('13-管理端-订单详情-工单块');
+
+    // 回到客户视角，确认回复真的透到了查单页
+    await cdp.send('Network.clearBrowserCookies');
+    await goto(`${BASE}/`, {
+      waitFor: `document.getElementById('lookup-form')`,
+      label: '查单页表单出现',
+    });
+    await evaluate(`(() => {
+      const input = document.getElementById('order-no');
+      input.value = ${JSON.stringify(orderNo)};
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      return true;
+    })()`);
+    await submitForm('lookup-form');
+    await waitFor(`location.pathname === '/order'`, {
+      timeout: 20000,
+      label: '再次查单进入详情页',
+    });
+    await waitFor(
+      `document.getElementById('tickets').textContent.includes(${JSON.stringify(TICKET_REPLY)})`,
+      { timeout: 20000, label: '客户看到店家的回复' }
+    );
+
+    check(
+      (await evaluate(`document.getElementById('tickets').textContent`)).includes('已回复'),
+      '客户看到工单状态变成「已回复」'
+    );
+    check(
+      (await evaluate(`document.querySelectorAll('#tickets .thread-msg.from-them').length`)) === 1,
+      '店家的回复在客户页面上靠左'
+    );
+    // 工单里也不该出现只有内部可见的东西
+    check(
+      !(await evaluate(`document.getElementById('tickets').textContent`)).includes(FORCE_NOTE),
+      '工单区没有泄露内部原因'
+    );
+    await shot('14-客户-看到店家回复');
+
+    // 手机上气泡、输入框、按钮挤在一张卡里，最容易撑出横向滚动条
+    await setViewport(390, 844, true);
+    await sleep(600);
+    const ticketOverflow = await evaluate(
+      `document.documentElement.scrollWidth - document.documentElement.clientWidth`
+    );
+    check(ticketOverflow <= 2, `手机上工单区没有横向溢出（溢出 ${ticketOverflow}px）`);
+    await shot('15-移动端-工单');
+    await setViewport(1280, 1000);
+
     /* ---------------- 7. 负向检查 ---------------- */
 
-    console.log('9) 无凭据访问');
+    console.log('10) 无凭据访问');
     await cdp.send('Network.clearBrowserCookies');
     await goto(`${BASE}/order`);
     await sleep(1200);

@@ -61,6 +61,40 @@
         <ul class="attach-list" id="attachments"></ul>
         <div class="mt-md" id="upload-area"></div>
       </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>售后 / 咨询</h2>
+          <div class="row">
+            <span class="muted small" id="ticket-hint"></span>
+            <button class="btn btn-primary btn-sm no-print" id="new-ticket-btn">提交新工单</button>
+          </div>
+        </div>
+
+        <!-- 表单放在列表上面：工单多了以后，按钮在顶部而表单在底部会点完看不见 -->
+        <form id="ticket-form" class="ticket-form hidden no-print" novalidate>
+          <div class="field">
+            <label for="ticket-category">问题类型</label>
+            <select id="ticket-category"></select>
+          </div>
+          <div class="field">
+            <label for="ticket-subject">标题</label>
+            <input type="text" id="ticket-subject" maxlength="60"
+                   placeholder="一句话说明问题，例如：支撑印得一塌糊涂">
+          </div>
+          <div class="field">
+            <label for="ticket-body">详细说明</label>
+            <textarea id="ticket-body" maxlength="2000"
+                      placeholder="什么时候发现的、哪个部位有问题、希望怎么处理"></textarea>
+          </div>
+          <div class="row">
+            <button type="submit" class="btn btn-primary" id="ticket-submit-btn">提交</button>
+            <button type="button" class="btn btn-link" id="ticket-cancel-btn">取消</button>
+          </div>
+        </form>
+
+        <div id="tickets"></div>
+      </div>
     </div>
 
     <div id="loading" class="card">

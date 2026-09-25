@@ -28,6 +28,15 @@
     info: document.getElementById('info'),
     attachments: document.getElementById('attachments'),
     uploadArea: document.getElementById('upload-area'),
+    tickets: document.getElementById('tickets'),
+    ticketHint: document.getElementById('ticket-hint'),
+    newTicketBtn: document.getElementById('new-ticket-btn'),
+    ticketForm: document.getElementById('ticket-form'),
+    ticketCategory: document.getElementById('ticket-category'),
+    ticketSubject: document.getElementById('ticket-subject'),
+    ticketBody: document.getElementById('ticket-body'),
+    ticketSubmitBtn: document.getElementById('ticket-submit-btn'),
+    ticketCancelBtn: document.getElementById('ticket-cancel-btn'),
   };
 
   let current = null; // 当前订单，上传/删除后用来刷新
@@ -232,10 +241,138 @@
   }
 
   /* ---------------------------------------------------------------------
+     售后 / 咨询工单
+     --------------------------------------------------------------------- */
+
+  function threadNode(messages) {
+    const wrap = h('div', { class: 'thread' });
+
+    for (const m of messages) {
+      // 在这个页面上"我"是客户，所以客户发的靠右、店家回复的靠左。
+      // 同一份数据在管理端要左右对调，方向由页面自己决定。
+      wrap.append(
+        h(
+          'div',
+          { class: `thread-msg ${m.author === 'customer' ? 'from-me' : 'from-them'}` },
+          h('div', { class: 'body', text: m.body }),
+          h('div', {
+            class: 'meta',
+            text: `${m.author === 'customer' ? '我' : '店家'} · ${formatDateTime(m.created_at)}`,
+          })
+        )
+      );
+    }
+
+    return wrap;
+  }
+
+  function replyBox(ticket) {
+    const textarea = h('textarea', {
+      placeholder: '继续补充说明…',
+      maxlength: '2000',
+      'aria-label': `补充说明：${ticket.subject}`,
+    });
+    const button = h('button', { class: 'btn btn-sm', text: '发送' });
+
+    button.addEventListener('click', async () => {
+      const body = textarea.value.trim();
+      if (!body) {
+        showMessage(els.message, '请先写点内容');
+        return;
+      }
+
+      setBusy(button, true, '发送中…');
+      const res = await Api.post(`/api/customer/tickets/${ticket.id}/messages`, { body });
+      setBusy(button, false);
+
+      if (!res.ok) {
+        showMessage(els.message, res.error || '发送失败，请重试');
+        return;
+      }
+
+      textarea.value = '';
+      showMessage(els.message, '已发送，店家回复后会显示在这里', 'ok');
+      await loadTickets();
+    });
+
+    return h(
+      'div',
+      { class: 'mt-md no-print' },
+      h('div', { class: 'field' }, textarea),
+      ticket.status === 'closed'
+        ? h('p', {
+            class: 'muted small',
+            text: '这条工单已经结束了。如果还有问题，直接发消息就会重新打开它。',
+          })
+        : null,
+      button
+    );
+  }
+
+  function ticketBlock(ticket) {
+    return h(
+      'div',
+      { class: 'ticket' },
+      h(
+        'div',
+        { class: 'ticket-head' },
+        h('h3', { text: ticket.subject }),
+        badge(ticket.status, ticket.status_label),
+        h('span', {
+          class: 'muted small',
+          text: `${ticket.category_label} · ${formatDateTime(ticket.created_at)}`,
+        })
+      ),
+      threadNode(ticket.messages),
+      replyBox(ticket)
+    );
+  }
+
+  function renderTickets(tickets) {
+    const wrap = clear(els.tickets);
+    els.ticketHint.textContent = tickets.length ? `共 ${tickets.length} 条` : '';
+
+    if (tickets.length === 0) {
+      wrap.append(
+        h('p', {
+          class: 'muted small mb-0',
+          text: '打印有问题、想改需求、或者只是想问一句，都可以在这里提。',
+        })
+      );
+      return;
+    }
+
+    for (const ticket of tickets) wrap.append(ticketBlock(ticket));
+  }
+
+  async function loadTickets() {
+    const res = await Api.get('/api/customer/tickets');
+
+    if (!res.ok) {
+      // 订单被删掉的情况会在整页加载那一步跳回首页，这里只管工单区自己的失败，
+      // 不让它连累已经渲染好的订单信息
+      showMessage(els.tickets, res.error || '工单加载失败，刷新页面重试');
+      return;
+    }
+
+    // 分类选项只在第一次填充，避免每次刷新都追加一批重复项
+    if (els.ticketCategory.options.length === 0) {
+      for (const c of res.data.categories) {
+        els.ticketCategory.append(h('option', { value: c.value, text: c.label }));
+      }
+    }
+
+    renderTickets(res.data.tickets);
+  }
+
+  /* ---------------------------------------------------------------------
      加载
      --------------------------------------------------------------------- */
 
   async function load() {
+    // 工单单独发一次请求，失败也不影响订单信息渲染，所以不 await 在下面那个 Promise.all 里
+    loadTickets();
+
     const [orderRes, historyRes] = await Promise.all([
       Api.get('/api/customer/order'),
       Api.get('/api/customer/order/history'),
@@ -294,6 +431,50 @@
     event.preventDefault();
     await Api.post('/api/customer/logout', {});
     window.location.href = '/';
+  });
+
+  function showTicketForm(show) {
+    els.ticketForm.classList.toggle('hidden', !show);
+    els.newTicketBtn.classList.toggle('hidden', show);
+    if (show) els.ticketSubject.focus();
+  }
+
+  els.newTicketBtn.addEventListener('click', () => showTicketForm(true));
+
+  els.ticketCancelBtn.addEventListener('click', () => {
+    els.ticketForm.reset();
+    showTicketForm(false);
+  });
+
+  els.ticketForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+
+    const subject = els.ticketSubject.value.trim();
+    const body = els.ticketBody.value.trim();
+
+    // 两个都必填：只有标题的话店家还得再问一遍，只有正文的话列表页没法看
+    if (!subject || !body) {
+      showMessage(els.message, '标题和详细说明都要填');
+      return;
+    }
+
+    setBusy(els.ticketSubmitBtn, true, '提交中…');
+    const res = await Api.post('/api/customer/tickets', {
+      category: els.ticketCategory.value,
+      subject,
+      body,
+    });
+    setBusy(els.ticketSubmitBtn, false);
+
+    if (!res.ok) {
+      showMessage(els.message, res.error || '提交失败，请重试');
+      return;
+    }
+
+    els.ticketForm.reset();
+    showTicketForm(false);
+    showMessage(els.message, '工单已提交，我们会尽快回复', 'ok');
+    await loadTickets();
   });
 
   load();

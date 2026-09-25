@@ -820,6 +820,83 @@ input[type="file"] {
 }
 
 /* --------------------------------------------------------------------------
+   工单
+   -------------------------------------------------------------------------- */
+
+/* 订单状态的徽章色在上面 .badge-xxx，这里补工单的三种状态。
+   待处理用琥珀色 —— 它是要人动手的那一档，得在列表里跳出来。 */
+.badge-open    { color: #92400e; background: #fef3c7; }
+.badge-replied { color: #1e40af; background: #dbeafe; }
+.badge-closed  { color: #475569; background: #eef1f5; }
+
+/* 对话线程。左右分边表示"谁说的"，比每条消息前面挂个名字省地方 ——
+   手机上一屏能多看两条。 */
+.thread {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.thread-msg {
+  max-width: 85%;
+  padding: 10px 14px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+}
+
+/* from-me / from-them 由前端按"当前是谁在看"决定：
+   同一份数据在客户页和管理端要左右对调。 */
+.thread-msg.from-me {
+  align-self: flex-end;
+  background: var(--primary-soft);
+  border-color: #bfdbfe;
+}
+
+.thread-msg.from-them {
+  align-self: flex-start;
+  background: var(--surface-alt);
+  border-color: var(--border);
+}
+
+.thread-msg .body {
+  /* 客户经常分段写，换行要原样保留 */
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.thread-msg .meta {
+  margin-top: 6px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* 新建工单表单展开时夹在标题和列表中间，别让列表贴着按钮 */
+.ticket-form {
+  margin-bottom: 18px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* 客户页每个工单之间的分隔 */
+.ticket + .ticket {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.ticket-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.ticket-head h3 {
+  word-break: break-word;
+}
+
+/* --------------------------------------------------------------------------
    打印样式：只留订单信息，方便直接打出来贴机器上
    -------------------------------------------------------------------------- */
 
