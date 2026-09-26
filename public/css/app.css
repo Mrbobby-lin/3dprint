@@ -1,5 +1,5 @@
 /* ==========================================================================
-   3D 打印订单管理 —— 统一样式
+   B&O 订单管理系统 —— 统一样式
    移动优先：客户大多用手机查单
    ========================================================================== */
 
@@ -640,6 +640,10 @@ th, td {
   text-align: left;
   border-bottom: 1px solid var(--border);
   vertical-align: middle;
+  /* 中文可以在任意两个字之间断行，自动表格布局于是把"模型"这类列一路压到
+     一个字一行（实测被压到 50px）。给列一个宽度下限，超出的宽度交给
+     .table-wrap 横向滚动 —— 只靠 table 上的 min-width 挡不住这件事。 */
+  min-width: 88px;
 }
 
 th {
@@ -772,12 +776,17 @@ input[type="file"] {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  /* 后台导航有 6 个链接，窄屏一条放不下。允许折行，
+     再配合 nav 的 overflow-x，让超出的部分横向滚动，而不是把每个链接挤成两行。 */
+  flex-wrap: wrap;
 }
 
 .topbar .brand {
   font-weight: 600;
   font-size: 0.98rem;
   color: var(--text);
+  /* 折行会把两行的品牌名撑得比导航还高，整条顶栏跟着变形 */
+  white-space: nowrap;
 }
 
 .topbar .brand:hover {
@@ -789,6 +798,25 @@ input[type="file"] {
   align-items: center;
   gap: 14px;
   font-size: 0.88rem;
+  /* min-width: 0 覆盖 flex 项的自动最小尺寸（默认等于内容宽度）。
+     不覆盖的话导航会把顶栏撑破，覆盖之后超出部分交给 overflow-x 滚动。 */
+  min-width: 0;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  /* 手机上靠滑动，滚动条那一条高度白占 */
+  scrollbar-width: none;
+  /* 横滑导航条滑到头时不要触发浏览器的"返回上一页"手势 */
+  overscroll-behavior-x: contain;
+}
+
+.topbar nav::-webkit-scrollbar {
+  display: none;
+}
+
+.topbar nav a {
+  /* 这套布局的前提：链接不折行。折了行就永远触发不了横向滚动，
+     横向滚动没触发，链接就会被一路压到"一个字一行"。 */
+  white-space: nowrap;
 }
 
 /* --------------------------------------------------------------------------
@@ -897,6 +925,22 @@ input[type="file"] {
 }
 
 /* --------------------------------------------------------------------------
+   品牌标识
+   -------------------------------------------------------------------------- */
+
+.app-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.app-brand-name {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+/* --------------------------------------------------------------------------
    打印样式：只留订单信息，方便直接打出来贴机器上
    -------------------------------------------------------------------------- */
 
@@ -947,5 +991,41 @@ input[type="file"] {
   .filters input {
     min-width: 0;
     flex: 1;
+  }
+
+  /* 链接本身没有内边距，不折行之后高度只剩一行文字（约 21px），
+     手指点不准。撑到 40px 以上，同时不改变横向滚动的行为。 */
+  .topbar nav a {
+    padding: 10px 0;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   全屏（PWA）下的安全区
+
+   装到主屏幕后没有浏览器外壳，页面会顶到刘海、状态栏和底部横条下面。
+   env() 在不支持或非全屏时返回 0，所以可以无条件应用，不必判断是不是
+   standalone。这段必须放在移动端那条媒体查询之后，否则会被它覆盖掉。
+   -------------------------------------------------------------------------- */
+
+@supports (padding: env(safe-area-inset-top)) {
+  .topbar {
+    padding-top: calc(12px + env(safe-area-inset-top));
+    padding-left: calc(16px + env(safe-area-inset-left));
+    padding-right: calc(16px + env(safe-area-inset-right));
+  }
+
+  .container {
+    padding-left: calc(16px + env(safe-area-inset-left));
+    padding-right: calc(16px + env(safe-area-inset-right));
+    padding-bottom: calc(56px + env(safe-area-inset-bottom));
+  }
+
+  @media (max-width: 640px) {
+    .container {
+      padding-left: calc(12px + env(safe-area-inset-left));
+      padding-right: calc(12px + env(safe-area-inset-right));
+      padding-bottom: calc(48px + env(safe-area-inset-bottom));
+    }
   }
 }

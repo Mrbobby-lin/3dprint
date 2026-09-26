@@ -357,7 +357,7 @@
     clear(els.statusBadge).append(badge(order.status, statusLabel(order.status)));
     els.updatedAt.textContent = `更新于 ${formatDateTime(order.updated_at)}`;
     els.editLink.href = `/admin/order/form?id=${order.id}`;
-    document.title = `${order.order_no} · 订单详情`;
+    document.title = `${order.order_no} · 订单详情 · B&O`;
 
     renderInfo();
     renderStatusPanel();

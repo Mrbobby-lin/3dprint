@@ -2,15 +2,30 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="robots" content="noindex">
-  <title>订单进度查询</title>
+  <title>订单进度查询 · B&O</title>
   <link rel="stylesheet" href="/css/app.css">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#2563eb">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <!-- 装到主屏幕后由系统显示的名字，要和 manifest 里的 short_name 一致。
+       iOS 只认这个 meta，不读 manifest 的 short_name。 -->
+  <meta name="apple-mobile-web-app-title" content="B&O 订单">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
 </head>
 <body>
   <main class="container container-narrow">
     <div class="card">
+      <!-- 客户侧唯一"不知道这是谁家页面"的入口。装成 PWA 之后连地址栏都没有，
+           更要有个品牌标识让客户确认打开的是对的地方。 -->
+      <div class="app-brand">
+        <img src="/favicon.svg" alt="" width="26" height="26">
+        <span class="app-brand-name">B&O 订单管理系统</span>
+      </div>
       <h1>订单进度查询</h1>
       <p class="muted small mt-sm">
         输入我们发给你的订单号，即可查看当前打印进度。
@@ -44,6 +59,7 @@
     <p class="center small muted mt-sm" id="forgot"></p>
   </main>
 
+  <script src="/js/pwa.js" defer></script>
   <script src="/js/api.js" defer></script>
   <script src="/js/customer.js" defer></script>
 </body>

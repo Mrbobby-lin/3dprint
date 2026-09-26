@@ -2,16 +2,25 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="robots" content="noindex">
-  <title>工单详情</title>
+  <title>工单详情 · B&O</title>
   <link rel="stylesheet" href="/css/app.css">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#2563eb">
+  <link rel="manifest" href="/admin/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <!-- 装到主屏幕后由系统显示的名字，要和 manifest 里的 short_name 一致。
+       iOS 只认这个 meta，不读 manifest 的 short_name。 -->
+  <meta name="apple-mobile-web-app-title" content="B&O 后台">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
 </head>
 <body>
   <header class="topbar no-print">
     <div class="topbar-inner">
-      <a class="brand" href="/admin/orders">3D 打印订单管理</a>
+      <a class="brand" href="/admin/orders">B&O 订单管理</a>
       <nav>
         <a href="/admin/orders">订单列表</a>
         <a href="/admin/order/form">新建订单</a>
@@ -69,6 +78,7 @@
     </div>
   </main>
 
+  <script src="/js/pwa.js" defer></script>
   <script src="/js/api.js" defer></script>
   <script src="/js/admin-ticket-detail.js" defer></script>
 </body>

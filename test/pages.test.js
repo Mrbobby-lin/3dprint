@@ -24,6 +24,7 @@ after(async () => {
 const PAGES = [
   '/',
   '/order',
+  '/offline',
   '/admin/login',
   '/admin/register',
   '/admin/orders',
@@ -59,8 +60,10 @@ test('每个页面引用的脚本和样式都真实存在', async () => {
 
   for (const page of PAGES) {
     const res = await client.get(page);
-    // favicon 一并纳入：页面引了但文件不存在的话，每个访客的浏览器都会记一条 404
-    for (const match of res.text.matchAll(/(?:src|href)="(\/(?:js|css)\/[^"]+|\/favicon\.svg)"/g)) {
+    // favicon、图标和 manifest 一并纳入：页面引了但文件不存在的话，
+    // 每个访客的浏览器都会记一条 404（manifest 拿不到还会导致装不了 PWA）
+    const RE = /(?:src|href)="(\/(?:js|css|icons)\/[^"]+|\/favicon\.svg|\/(?:admin\/)?manifest\.webmanifest)"/g;
+    for (const match of res.text.matchAll(RE)) {
       referenced.add(match[1]);
     }
   }
@@ -215,4 +218,152 @@ test('404 页面与接口返回合适的响应', async () => {
   const api = await client.get('/api/no-such-endpoint');
   assert.equal(api.status, 404);
   assert.match(api.headers.get('content-type'), /application\/json/);
+});
+
+/* ---------------------------------------------------------------------------
+   PWA
+   --------------------------------------------------------------------------- */
+
+test('每个页面都引了 manifest，后台用后台那一份', async () => {
+  for (const page of PAGES) {
+    const res = await client.get(page);
+    // 后台和客户的 start_url 不同，装到主屏幕后打开的位置也不一样，
+    // 引错了不会报错，只会"装出来的图标点了没反应"，所以在这里拦住。
+    const expected = page.startsWith('/admin')
+      ? '/admin/manifest.webmanifest'
+      : '/manifest.webmanifest';
+
+    assert.ok(
+      res.text.includes(`rel="manifest" href="${expected}"`),
+      `${page} 没有引用 ${expected}`
+    );
+    assert.ok(res.text.includes('rel="apple-touch-icon"'), `${page} 缺少 apple-touch-icon`);
+    assert.ok(res.text.includes('name="theme-color"'), `${page} 缺少 theme-color`);
+  }
+});
+
+test('manifest 内容合法，且引用的图标都存在', async () => {
+  for (const file of ['/manifest.webmanifest', '/admin/manifest.webmanifest']) {
+    const res = await client.get(file);
+    assert.equal(res.status, 200, `${file} 返回 ${res.status}`);
+    // MIME 不对的话浏览器直接拒绝解析，而且不会有显眼的报错
+    assert.match(
+      res.headers.get('content-type'),
+      /application\/manifest\+json/,
+      `${file} 的 Content-Type 不是 manifest`
+    );
+
+    const manifest = JSON.parse(res.text);
+    assert.ok(manifest.name, `${file} 缺少 name`);
+    assert.ok(manifest.short_name, `${file} 缺少 short_name（主屏幕上的名字）`);
+    assert.equal(manifest.display, 'standalone', `${file} 的 display 必须是 standalone`);
+    assert.ok(manifest.start_url, `${file} 缺少 start_url`);
+
+    // start_url 不在 scope 内的话浏览器会判定不可安装
+    const scope = manifest.scope || '/';
+    assert.ok(
+      manifest.start_url.startsWith(scope),
+      `${file} 的 start_url ${manifest.start_url} 不在 scope ${scope} 内`
+    );
+
+    const icons = manifest.icons || [];
+    assert.ok(
+      icons.some((icon) => icon.sizes === '512x512' && icon.purpose === 'maskable'),
+      `${file} 缺少 maskable 图标，安卓会把图标边缘裁掉`
+    );
+    assert.ok(
+      icons.some((icon) => icon.sizes === '192x192'),
+      `${file} 缺少 192×192 图标`
+    );
+
+    for (const icon of icons) {
+      const iconRes = await client.get(icon.src);
+      assert.equal(iconRes.status, 200, `${file} 引用了不存在的图标 ${icon.src}`);
+      assert.equal(iconRes.headers.get('content-type'), 'image/png', `${icon.src} 不是 PNG`);
+    }
+  }
+});
+
+test('SVG 图标是合法的 XML', () => {
+  // SVG 是 XML，不是 HTML：裸的 & 在 XML 里是致命错误。
+  // 品牌名里正好有个 &（B&O），改名时踩过一次 —— HTTP 层面完全正常
+  // （200、Content-Type: image/svg+xml），但浏览器解析不了，
+  // 图标静静地裂掉，而所有接口测试都是绿的。
+  const svgs = [];
+  (function walk(dir) {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (entry.name.endsWith('.svg')) svgs.push(full);
+    }
+  })(PUBLIC_DIR);
+
+  assert.ok(svgs.length > 0, '没找到任何 SVG，这个测试已经失效了');
+
+  for (const file of svgs) {
+    const rel = path.relative(PUBLIC_DIR, file);
+    const xml = fs.readFileSync(file, 'utf8');
+
+    // 裸 & = 不在实体引用里的 &。&amp; / &#38; / &#x26; 都是合法的。
+    const raw = xml.match(/&(?!(?:[a-zA-Z][a-zA-Z0-9]*|#[0-9]+|#x[0-9a-fA-F]+);)/);
+    assert.equal(raw, null, `${rel} 里有没转义的 &，XML 解析会失败（图标裂掉）`);
+
+    assert.match(xml, /<svg[\s>]/, `${rel} 不是 SVG`);
+  }
+});
+
+test('Service Worker 可被注册', async () => {
+  const res = await client.get('/sw.js');
+  assert.equal(res.status, 200);
+  // MIME 不对时浏览器会静默拒绝注册，排查起来非常费劲
+  assert.match(res.headers.get('content-type'), /javascript/, '/sw.js 的 MIME 不对');
+
+  // Service Worker 的作用域不能超出脚本所在目录，
+  // 所以它必须在根路径上，否则管不到 /admin/ 下面的页面。
+  assert.match(res.text, /addEventListener\('fetch'/, '/sw.js 里没有 fetch 处理');
+});
+
+test('Service Worker 预缓存的文件都存在', async () => {
+  // 预缓存列表里写了不存在的文件，cache.add 会失败。
+  // 而安装阶段的失败是静默的（代码里刻意吞掉了单个失败），
+  // 结果就是"断网时本该能看的离线页打不开"，没人会发现。
+  const sw = fs.readFileSync(path.join(PUBLIC_DIR, 'sw.js'), 'utf8');
+  const list = sw.match(/const PRECACHE = \[([\s\S]*?)\]/);
+  assert.ok(list, '在 sw.js 里找不到 PRECACHE，这个测试已经失效了');
+
+  // 列表里既有字符串字面量，也有 OFFLINE_URL 这样的常量名，两种都要认。
+  // 认不出就报错，不能静默跳过 —— 否则改了写法之后这个测试会变成空转。
+  const constants = Object.fromEntries(
+    [...sw.matchAll(/const (\w+) = '([^']+)'/g)].map((m) => [m[1], m[2]])
+  );
+
+  const urls = [];
+  for (const match of list[1].matchAll(/'([^']+)'|([A-Za-z_][A-Za-z0-9_]*)/g)) {
+    const raw = match[1] || match[2];
+    const resolved = match[1] ? raw : constants[raw];
+    assert.ok(resolved, `PRECACHE 里的 ${raw} 解析不出路径，这个测试需要同步更新`);
+    urls.push(resolved);
+  }
+
+  assert.ok(urls.length > 0, 'PRECACHE 是空的');
+  assert.ok(urls.includes('/offline.html'), 'PRECACHE 里没有离线页');
+
+  for (const url of urls) {
+    const res = await client.get(url);
+    assert.equal(res.status, 200, `Service Worker 预缓存了不存在的文件：${url}`);
+  }
+});
+
+test('Service Worker 不缓存接口响应', async () => {
+  // 缓存接口 = 可能把 A 客户的订单喂给 B，而且缓存跨会话存活，
+  // 用户登出也不会清。这是这个站最不能出错的一条规则。
+  const sw = fs.readFileSync(path.join(PUBLIC_DIR, 'sw.js'), 'utf8');
+  const cacheable = sw.match(/const CACHEABLE_PREFIXES = \[([\s\S]*?)\]/);
+  assert.ok(cacheable, '在 sw.js 里找不到 CACHEABLE_PREFIXES，这个测试已经失效了');
+
+  assert.ok(
+    !cacheable[1].includes('/api'),
+    'CACHEABLE_PREFIXES 里出现了 /api，接口响应会被缓存'
+  );
+  assert.match(sw, /if \(request\.mode === 'navigate'\)/, '导航请求没有单独处理');
 });

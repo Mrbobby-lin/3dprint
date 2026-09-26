@@ -276,9 +276,22 @@ async function setViewport(width, height, mobile = false) {
 // 未登录访客必然收到 401，浏览器会把它们记成 error 级日志，但那不是缺陷。
 const PROBE_PATHS = /\/(api\/customer\/(order(\/history)?|tickets)|api\/auth\/me)$/;
 
-function isExpectedNoise(url, status) {
+// 刻意断网的那一段必然产生连接失败日志，只在那一段里放行。
+// 不做成全局放行 —— 那会把别处的连接问题一起盖掉。
+let allowOfflineErrors = false;
+
+function isExpectedNoise(url, status, text) {
   if (!url) return false;
-  if (url.includes('favicon')) return true;
+  // 浏览器会自己去要 /favicon.ico，这个站没有这个文件，404 是预期内的噪音。
+  // 只放行这一个路径：早先这里写的是 url.includes('favicon')，把
+  // /favicon.svg 一起放行了，于是品牌图标解析失败也没人喊 —— 别改回去。
+  if (new URL(url).pathname === '/favicon.ico') return true;
+  if (
+    allowOfflineErrors &&
+    /ERR_INTERNET_DISCONNECTED|ERR_NETWORK_CHANGED|ERR_FAILED/.test(text || '')
+  ) {
+    return true;
+  }
   return status === 401 && PROBE_PATHS.test(new URL(url).pathname);
 }
 
@@ -393,7 +406,7 @@ async function main() {
       // 网络失败的日志长这样："Failed to load resource: ... 401 (Unauthorized)"
       // 状态码在 text 里，出错的地址在 url 里，两个都要看
       const status = Number((e.text.match(/status of (\d{3})/) || [])[1]);
-      if (isExpectedNoise(e.url, status)) return;
+      if (isExpectedNoise(e.url, status, e.text)) return;
       // CSP 违规会以 Log error 的形式出现，必须当成硬失败
       problems.push(`浏览器日志错误：${e.text}${e.url ? ` (${e.url})` : ''}`);
     });
@@ -1067,9 +1080,94 @@ async function main() {
     await shot('15-移动端-工单');
     await setViewport(1280, 1000);
 
-    /* ---------------- 7. 负向检查 ---------------- */
+    /* ---------------- 7. 后台在手机上的布局 ---------------- */
 
-    console.log('10) 无凭据访问');
+    // 后台顶栏有 6 个链接，是全站最容易被手机宽度挤坏的地方。
+    // 客户页早就有 390px 检查了，后台一直没有 —— 加一个链接挤坏了也没人知道。
+    console.log('10) 后台移动端布局');
+    await goto(`${BASE}/admin/login`, {
+      waitFor: `document.getElementById('login-form')`,
+      label: '管理员登录页出现',
+    });
+    await setFields({ username: ADMIN_USER, password: ADMIN_PASS });
+    await submitForm('login-form');
+    await waitFor(`location.pathname === '/admin/orders'`, {
+      timeout: 20000,
+      label: '再次以管理员身份登录',
+    });
+
+    await setViewport(390, 844, true);
+
+    // 顶栏还能不能用，取决于导航链接有没有被挤到折行。
+    // 注意不能用 offsetTop 判断 —— 所有链接都折成两行时它们反而"对齐"，
+    // 会给出假通过。用 Range.getClientRects() 数文字占了几行才准，
+    // 而且和行高、内边距都无关。
+    const checkMobileLayout = async (name) => {
+      await sleep(600);
+
+      const navLines = await evaluate(`(() => {
+        let worst = 0;
+        for (const a of document.querySelectorAll('.topbar nav a')) {
+          const range = document.createRange();
+          range.selectNodeContents(a);
+          worst = Math.max(worst, range.getClientRects().length);
+        }
+        return worst;
+      })()`);
+      check(navLines <= 1, `${name}：顶栏链接文字没有折行（最多占 ${navLines} 行）`);
+
+      const rows = await evaluate(`(() => {
+        const links = [...document.querySelectorAll('.topbar nav a')];
+        return new Set(links.map((a) => a.offsetTop)).size;
+      })()`);
+      check(rows === 1, `${name}：顶栏导航排成一行（实际 ${rows} 行）`);
+
+      const minTap = await evaluate(
+        `Math.min(...[...document.querySelectorAll('.topbar nav a')].map((a) => a.offsetHeight))`
+      );
+      check(minTap >= 36, `${name}：顶栏导航可点高度 ${minTap}px ≥ 36px`);
+
+      const over = await evaluate(
+        `document.documentElement.scrollWidth - document.documentElement.clientWidth`
+      );
+      check(over <= 2, `${name}：没有横向溢出（溢出 ${over}px）`);
+
+      // 诊断：表格被挤扁时列宽会缩到一列几个字符，光看"有没有横向滚动"看不出来
+      const table = await evaluate(`(() => {
+        const wrap = document.querySelector('.table-wrap');
+        if (!wrap) return null;
+        const t = wrap.querySelector('table');
+        const ths = [...t.querySelectorAll('thead th')];
+        return {
+          wrapW: Math.round(wrap.clientWidth),
+          tableW: Math.round(t.getBoundingClientRect().width),
+          scrollable: wrap.scrollWidth > wrap.clientWidth,
+          cols: ths.map((th) => th.textContent.trim() + '=' +
+            Math.round(th.getBoundingClientRect().width)),
+        };
+      })()`);
+      if (table) {
+        console.log(`  · ${name} 表格：容器 ${table.wrapW}px / 表格 ${table.tableW}px / ` +
+          `可横向滚动 ${table.scrollable}`);
+        console.log(`    列宽 ${table.cols.join(' ')}`);
+      }
+    };
+
+    await checkMobileLayout('订单列表');
+    await shot('16-移动端-后台订单列表');
+
+    await goto(`${BASE}/admin/order/detail?id=${orderId}`, {
+      waitFor: `document.getElementById('content')`,
+      label: '订单详情页出现',
+    });
+    await checkMobileLayout('订单详情');
+    await shot('17-移动端-后台订单详情');
+
+    await setViewport(1280, 1000);
+
+    /* ---------------- 8. 负向检查 ---------------- */
+
+    console.log('11) 无凭据访问');
     await cdp.send('Network.clearBrowserCookies');
     await goto(`${BASE}/order`);
     await sleep(1200);
@@ -1082,6 +1180,142 @@ async function main() {
       await evaluate(`location.pathname === '/admin/login'`),
       '未登录访问后台被重定向到登录页'
     );
+
+    /* ---------------- 9. PWA ---------------- */
+
+    console.log('12) PWA');
+
+    // Service Worker 只在安全上下文里可用，而 127.0.0.1 算安全上下文 ——
+    // 所以这一轮是真的把 SW 跑起来了，不是只检查代码写得对不对。
+    await setViewport(1280, 1000);
+    await goto(`${BASE}/`, {
+      waitFor: `document.getElementById('lookup-form')`,
+      label: '查单页出现',
+    });
+
+    // 品牌图标真的画出来了没有。只看 HTTP 200 会漏：SVG 是 XML，
+    // 一个没转义的 &（品牌名 B&O 里就有一个）就能让它解析失败，
+    // 静态检查和接口测试全绿，页面上却是一张裂图 —— 已经踩过一次。
+    // decode() 解不出来时会 reject，是"能不能画出来"的判据。
+    const brandRenders = `(async () => {
+      const el = document.querySelector('.app-brand img');
+      if (!el) return { found: false };
+      const decoded = await el.decode().then(() => true, () => false);
+      return { found: true, decoded, natural: el.naturalWidth, src: el.getAttribute('src') };
+    })()`;
+    const brandOnline = await evaluate(brandRenders);
+    check(brandOnline.found, '查单页上有品牌图标');
+    check(
+      brandOnline.decoded,
+      `查单页的品牌图标 ${brandOnline.src} 能渲染出来（naturalWidth=${brandOnline.natural}）`
+    );
+
+    // 让浏览器自己解析 manifest 并报告错误，比用正则去匹配 HTML 可信得多
+    try {
+      const manifest = await cdp.send('Page.getAppManifest');
+      const errors = manifest.errors || [];
+      check(errors.length === 0, `manifest 能被浏览器解析${errors.length ? `（${JSON.stringify(errors)}）` : ''}`);
+      check(/B&O/.test(manifest.data || ''), 'manifest 里带的是 B&O 的名字');
+    } catch (err) {
+      check(false, `取不到 manifest：${err.message}`);
+    }
+
+    await waitFor(`navigator.serviceWorker.controller !== null`, {
+      timeout: 20000,
+      label: 'Service Worker 接管页面',
+    });
+    check(true, 'Service Worker 注册成功并接管了页面');
+
+    const cached = await evaluate(`(async () => {
+      const names = await caches.keys();
+      const urls = [];
+      for (const name of names) {
+        const cache = await caches.open(name);
+        for (const req of await cache.keys()) urls.push(new URL(req.url).pathname);
+      }
+      return urls;
+    })()`);
+    check(cached.includes('/offline.html'), '离线页已进入预缓存');
+    // 这条是整套缓存策略里最要紧的一条：缓存接口响应等于可能把
+    // A 客户的订单喂给 B，而且缓存跨会话存活，登出也不会清。
+    check(
+      !cached.some((u) => u.startsWith('/api/')),
+      `缓存里没有任何接口响应（实际缓存 ${cached.length} 项）`
+    );
+
+    // 键存在不等于取得到：Vary 头或请求头不同都会让 caches.match 落空。
+    // 断网时页面上的图标、样式全靠这一步，所以直接试一次匹配。
+    const matched = await evaluate(`(async () => {
+      const urls = ${JSON.stringify([
+        '/offline.html',
+        '/css/app.css',
+        '/js/offline.js',
+        '/favicon.svg',
+        '/icons/icon-192.png',
+      ])};
+      const out = {};
+      for (const u of urls) out[u] = !!(await caches.match(u));
+      return out;
+    })()`);
+    for (const [url, ok] of Object.entries(matched)) {
+      check(ok, `预缓存的 ${url} 断网时能取到`);
+    }
+
+    // 断网：真把应用停掉，而不是用 CDP 的 Network.emulateNetworkConditions。
+    // 后者是加在页面 target 上的，而 Service Worker 是独立的 target，
+    // 它的 fetch 不受影响 —— 实测断网模拟开着，SW 照样能从本机把页面取回来，
+    // 回退逻辑一次都没被测到。
+    console.log('   （停掉应用，制造真实断网）');
+    app.kill('SIGTERM');
+
+    let serverDown = false;
+    const stopDeadline = Date.now() + 15000;
+    while (Date.now() < stopDeadline) {
+      try {
+        await fetch(`${BASE}/api/health`);
+      } catch {
+        serverDown = true;
+        break;
+      }
+      await sleep(200);
+    }
+    check(serverDown, '应用已停掉（用来模拟断网）');
+
+    allowOfflineErrors = true;
+
+    // 1) 浏览器自己的 HTTP 缓存里可能还留着页面外壳。那种降级是可接受的
+    //    （外壳里没有任何订单数据），但绝不能让数据跟着漏出来。
+    await goto(`${BASE}/order`);
+    await sleep(800);
+    const offlineText = await evaluate(`document.body.innerText`);
+    check(!offlineText.includes(orderNo), '断网时没有泄露订单号');
+    check(!offlineText.includes(CUSTOMER_NAME), '断网时没有泄露客户姓名');
+    check(
+      offlineText.includes('当前没有网络') || offlineText.includes('网络连接失败'),
+      '断网时给出了明确的提示，而不是白屏'
+    );
+
+    // 2) 缓存里没有的页面必须回退到离线页 —— 这才是 SW 的回退逻辑本身。
+    //    挂个查询串是为了保证这个 URL 一定不在 HTTP 缓存里
+    //    （静态文件服务忽略查询串，联网时它照常返回同一个页面）。
+    await goto(`${BASE}/order?offline-probe=1`);
+    await sleep(600);
+    check(
+      (await evaluate(`document.body.innerText`)).includes('当前没有网络'),
+      '断网时未缓存的页面回退到离线页'
+    );
+
+    // 离线页自己的图标和样式也得从缓存里出来，否则就是一张裂图配乱版
+    const brandOffline = await evaluate(brandRenders);
+    check(brandOffline.found, '离线页上有品牌图标');
+    check(
+      brandOffline.decoded,
+      `离线页的品牌图标能从缓存里画出来（naturalWidth=${brandOffline.natural}）`
+    );
+
+    await shot('18-离线页');
+
+    allowOfflineErrors = false;
 
     recordNetwork = true;
 

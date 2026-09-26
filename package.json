@@ -1,8 +1,8 @@
 {
-  "name": "print3d-order-system",
+  "name": "bo-order-system",
   "version": "1.0.0",
   "private": true,
-  "description": "3D 打印订单管理系统 — 管理员录单推进度，客户凭订单号自助查单",
+  "description": "B&O 订单管理系统 — 管理员录单推进度，客户凭订单号自助查单",
   "main": "app.js",
   "engines": {
     "node": ">=22.5.0"

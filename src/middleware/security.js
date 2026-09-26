@@ -18,6 +18,10 @@ function buildCsp() {
     "img-src 'self' data: blob:",
     "font-src 'self'",
     connectSrc,
+    // worker-src 和 manifest-src 目前都能从 default-src 'self' 兜住，
+    // 写出来是为了显式：以后谁把 default-src 放开，这两处不会跟着一起被放开。
+    "worker-src 'self'",
+    "manifest-src 'self'",
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
@@ -37,7 +41,12 @@ function securityHeaders(req, res, next) {
   res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
   res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=(), payment=()');
   if (config.isProd) {
-    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    // 刻意不用一年的 max-age。这台机器上的是 6 天有效期的 IP 证书
+    // （Let's Encrypt 的 shortlived profile），一旦续期失败，
+    // 一年的 HSTS 会让浏览器在证书修好之前都拒绝访问、连"继续前往"都不给。
+    // 7 天 ≈ 一个续期周期，续期真的坏掉时锁死的时间有上限。
+    // 将来换上正式域名和 90 天证书之后，这里可以调回 31536000。
+    res.setHeader('Strict-Transport-Security', 'max-age=604800');
   }
   next();
 }

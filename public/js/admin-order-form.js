@@ -211,7 +211,7 @@
     document.getElementById('page-title').textContent = `编辑订单 ${order.order_no}`;
     document.getElementById('order-no-hint').textContent = `当前状态：${order.status}`;
     submitBtn.textContent = '保存修改';
-    document.title = `编辑订单 ${order.order_no}`;
+    document.title = `编辑订单 ${order.order_no} · B&O`;
   }
 
   form.addEventListener('submit', async (event) => {

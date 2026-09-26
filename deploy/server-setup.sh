@@ -151,7 +151,18 @@ if ! command -v nginx >/dev/null 2>&1; then
 fi
 
 [ -f "$STAGE_DIR/nginx-print3d.conf" ] || die "缺少 $STAGE_DIR/nginx-print3d.conf"
+[ -f "$STAGE_DIR/nginx-print3d-proxy.conf" ] || die "缺少 $STAGE_DIR/nginx-print3d-proxy.conf"
 install -m 644 "$STAGE_DIR/nginx-print3d.conf" "$NGINX_SITE"
+
+# 反代主体是 80 和 443 共用的，放 snippets 里被两边 include。
+# 少了它 nginx -t 会直接报 include 的文件不存在。
+mkdir -p /etc/nginx/snippets
+install -m 644 "$STAGE_DIR/nginx-print3d-proxy.conf" /etc/nginx/snippets/print3d-proxy.conf
+
+# ACME HTTP-01 挑战目录。现在还没有证书，但先建好：
+# deploy/setup-https.sh 签发时 certbot 要往这里写文件。
+mkdir -p /var/www/certbot
+chown -R www-data:www-data /var/www/certbot 2>/dev/null || true
 
 # 发行版自带的默认站点也监听 80 且是 default_server，会和我们的兜底 server
 # 冲突（nginx 会报 duplicate default server 起不来）。必须让位。

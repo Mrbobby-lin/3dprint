@@ -1,5 +1,5 @@
 [Unit]
-Description=3D 打印订单管理系统
+Description=B&O 订单管理系统
 After=network-online.target
 Wants=network-online.target
 
