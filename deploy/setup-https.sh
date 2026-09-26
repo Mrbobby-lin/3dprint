@@ -34,6 +34,15 @@ PIP_MIRROR=https://mirrors.tencentyun.com/pypi/simple/
 STAGING=0
 [ "${1:-}" = "--staging" ] && STAGING=1
 
+# 演练模式必须用另一个证书名。否则 staging 的证书会落在
+# /etc/letsencrypt/live/150.158.18.245/ —— 也就是正式路径，
+# 之后正式跑一次会看到"证书已存在"直接跳过签发，然后把 443 配上这张
+# 浏览器不信任的证书。这个错误不会报错，只会让所有人看到证书警告。
+if [ "$STAGING" -eq 1 ]; then
+  CERT_NAME="$IP-staging"
+  LIVE_DIR="/etc/letsencrypt/live/$CERT_NAME"
+fi
+
 log() { printf '\n\033[1;34m==> %s\033[0m\n' "$*"; }
 die() { printf '\n\033[1;31m!! %s\033[0m\n' "$*" >&2; exit 1; }
 
@@ -128,8 +137,9 @@ fi
 
 if [ "$STAGING" -eq 1 ]; then
   log "演练结束（--staging）"
-  echo "staging 的证书在 $LIVE_DIR，是自签的，不要拿它配生产。"
-  echo "确认上面流程没问题后，去掉 --staging 再跑一次。"
+  # 顺手删掉，免得它在 certbot certificates 里留着、日后被误当成正式证书。
+  "$CERTBOT" delete --cert-name "$CERT_NAME" --non-interactive 2>/dev/null || true
+  echo "演练用的证书已删除。上面流程没问题的话，去掉 --staging 正式跑一次。"
   exit 0
 fi
 
@@ -170,9 +180,19 @@ echo "已写入 /etc/cron.d/print3d-cert-renew（每天 04:23 / 16:23）"
 log "6/6 自检"
 # ---------------------------------------------------------------------------
 echo "从本机经 HTTPS 访问首页："
-code=$(curl -sS -m 10 -o /dev/null -w '%{http_code}' "https://$IP/") || true
+# --resolve 把 IP 指到 127.0.0.1 上，这样测的是"nginx + 证书"本身，
+# 不经过公网。**不能直接 curl https://$IP/** —— 实测在腾讯云上，
+# 从机器访问自己的公网 IP 仍然要过安全组，443 没放行时永远超时，
+# 把"配置没问题"误报成失败。外网可达性只能在你自己电脑上测。
+code=$(curl -sS -m 10 --resolve "$IP:443:127.0.0.1" -o /dev/null -w '%{http_code}' "https://$IP/") || true
 echo "  HTTP $code"
 [ "$code" = "200" ] || die "HTTPS 自检失败（返回 $code），看 journalctl -u nginx 和 nginx -t"
+
+# 证书链要能被系统信任库验过（0 = 通过）。这里验不过说明 fullchain 有问题，
+# 浏览器会直接报证书错误。
+verify=$(curl -sS -m 10 --resolve "$IP:443:127.0.0.1" -o /dev/null -w '%{ssl_verify_result}' "https://$IP/") || true
+[ "$verify" = "0" ] || die "证书链校验失败（ssl_verify_result=$verify）"
+echo "证书链校验通过 ✓"
 
 echo "证书有效期："
 openssl x509 -in "$LIVE_DIR/fullchain.pem" -noout -dates -ext subjectAltName | sed 's/^/  /'
